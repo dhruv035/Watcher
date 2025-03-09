@@ -1,0 +1,7 @@
+CREATE TABLE IF NOT EXISTS ping_events (
+  timestamp BIGINT NOT NULL,
+  tx_hash VARCHAR(66) NOT NULL PRIMARY KEY,
+  processed BOOLEAN DEFAULT FALSE,
+  pong_tx_hash VARCHAR(66),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+); 

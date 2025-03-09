@@ -1,0 +1,27 @@
+{
+  "name": "kleros-k",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "ts-node src/index.ts",
+    "build": "tsc",
+    "dev": "ts-node-dev --respawn src/index.ts",
+    "migrate": "psql $DATABASE_URL -f migrations/*.sql"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@types/node": "^20.11.24",
+    "@types/pg": "^8.11.11",
+    "dotenv": "^16.4.5",
+    "ethers": "^6.11.1",
+    "pg": "^8.13.3",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  },
+  "devDependencies": {
+    "ts-node-dev": "^2.0.0"
+  }
+}
