@@ -1,6 +1,7 @@
 import { ethers } from 'ethers';
 import dotenv from 'dotenv';
 import { getClient, getLastProcessedBlock, queuePingEvent, releaseClient, updateWatcherState } from './db';
+import { PoolClient } from 'pg';
 
 dotenv.config();
 
@@ -52,31 +53,18 @@ async function processHistoricalEvents(
 ) {
   console.log(`Processing historical events from block ${fromBlock} to ${toBlock}`);
   
+  const client = await getClient();
   try {
     // Process in batches of BATCH_SIZE blocks
     for (let currentBlock = fromBlock; currentBlock <= toBlock; currentBlock += BATCH_SIZE) {
       const batchEndBlock = Math.min(currentBlock + BATCH_SIZE - 1, toBlock);
-      
-      const logs = await fetchLogs(provider, contractAddress, currentBlock, batchEndBlock);
-      console.log(`Found ${logs.length} events in batch from ${currentBlock} to ${batchEndBlock}`);
-
-      for (const log of logs) {
-        await queuePingEvent(
-          log.transactionHash,
-          Math.floor(Date.now() / 1000),
-          parseInt(log.blockNumber, 16)
-        );
-      }
-
-      // Always update the last processed block after each batch
-      if (logs.length === 0) {
-        const client = await getClient();
-        await updateWatcherState(batchEndBlock,client).finally(() => releaseClient(client))
-      }
+      await processBatch(client,provider,contractAddress,currentBlock,batchEndBlock)
     }
   } catch (error) {
     console.error('Error processing historical events:', error);
     throw error;
+  } finally {
+    await releaseClient(client)
   }
 }
 
@@ -98,14 +86,14 @@ async function main() {
     if (lastProcessedBlock === null) {
       console.log(`Initializing watcher state at block ${startBlockNumber - 1}`);
       const client = await getClient();
-      await queuePingEvent('', 0,startBlockNumber - 1).finally(() => releaseClient(client))
+      await queuePingEvent('',startBlockNumber - 1,client).finally(() => releaseClient(client))
       lastProcessedBlock = startBlockNumber - 1;
     }
 
     // Catch up processing if needed
     if (lastProcessedBlock < currentBlock) {
       console.log(`Catching up from block ${lastProcessedBlock + 1} to ${currentBlock}`);
-      await processHistoricalEvents(provider, contractAddress, lastProcessedBlock + 1, currentBlock);
+      await processHistoricalEvents(provider, contractAddress, Number(lastProcessedBlock) + 1, currentBlock);
     }
 
     console.log(`Starting to watch for Ping events on contract: ${contractAddress}`);
@@ -116,7 +104,8 @@ async function main() {
         console.log(`Processing block: ${blockNumber}`);
         
         const logs = await fetchLogs(provider, contractAddress, blockNumber, blockNumber);
-        
+        const client = await getClient();
+        client.query('BEGIN');
         for (const log of logs) {
           console.log(`
             New Ping Event Detected!
@@ -126,16 +115,17 @@ async function main() {
 
           await queuePingEvent(
             log.transactionHash,
-            Math.floor(Date.now() / 1000),
-            blockNumber
+            blockNumber,
+            client
           );
         }
 
+        await updateWatcherState(blockNumber,client)
+        await client.query('COMMIT')
+        await releaseClient(client)
+
         // Always update the last processed block
-        if (logs.length === 0) {
-          const client = await getClient();
-          await updateWatcherState(blockNumber,client).finally(() => releaseClient(client))
-        }
+      
 
       } catch (error) {
         console.error('Error processing block:', error);
@@ -153,6 +143,20 @@ async function main() {
   }
 }
 
+const processBatch = async (client: PoolClient,provider: ethers.JsonRpcProvider,contractAddress: string,startBlock: number,endBlock: number) => {
+  try {
+    client.query('BEGIN');
+    const logs = await fetchLogs(provider, contractAddress, startBlock, endBlock);
+    for (const log of logs) {
+      await queuePingEvent(log.transactionHash,log.blockNumber,client)
+    }
+    await updateWatcherState(endBlock,client)
+    await client.query('COMMIT')
+  } catch (error) {
+    await client.query('ROLLBACK')
+    throw error
+  } 
+}
 // Start the server
 main().catch((error) => {
   console.error('Error in main:', error);

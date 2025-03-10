@@ -32,30 +32,24 @@ export const releaseClient = async (client: PoolClient): Promise<void> => {
 // Queue ping event and update block number in a single transaction
 export async function queuePingEvent(
   txHash: string,
-  timestamp: number,
-  blockNumber: number
+  blockNumber: number,
+  client: PoolClient
 ): Promise<void> {
-  const client = await pool.connect();
   try {
-    await client.query('BEGIN');
     
     // Only insert ping event if we have valid data
-    if (txHash && timestamp) {
+    if (txHash) {
       await client.query(
-        'INSERT INTO ping_events (tx_hash, timestamp,block_number) VALUES ($1, $2, $3)',
-        [txHash, timestamp,blockNumber]
+        'INSERT INTO ping_events (tx_hash,block_number) VALUES ($1, $2)',
+        [txHash,blockNumber]
       );
     }
 
     // Update watcher state
     await updateWatcherState(blockNumber,client)
 
-    await client.query('COMMIT');
   } catch (error) {
-    await client.query('ROLLBACK');
     throw error;
-  } finally {
-    client.release();
   }
 }
 
