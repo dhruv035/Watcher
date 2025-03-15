@@ -1,20 +1,15 @@
--- Table: public.pong_transactions
+-- Table: public.watcher_state
 
--- DROP TABLE IF EXISTS public.pong_transactions;
+-- DROP TABLE IF EXISTS public.watcher_state;
 
-CREATE TABLE IF NOT EXISTS public.pong_transactions
+CREATE TABLE IF NOT EXISTS public.watcher_state
 (
-    tx_hash character varying(66) COLLATE pg_catalog."default" NOT NULL,
-    nonce bigint NOT NULL,
-    ping_hash character varying(66) COLLATE pg_catalog."default" NOT NULL,
-    status character varying COLLATE pg_catalog."default" NOT NULL,
-    block_number bigint,
-    replacement_hash character varying(66) COLLATE pg_catalog."default",
-    CONSTRAINT pong_transactions_pkey PRIMARY KEY (nonce),
-    CONSTRAINT tx_hash UNIQUE (tx_hash)
+    id integer NOT NULL,
+    last_block_number bigint NOT NULL,
+    CONSTRAINT watcher_state_pkey PRIMARY KEY (id)
 )
 
 TABLESPACE pg_default;
 
-ALTER TABLE IF EXISTS public.pong_transactions
+ALTER TABLE IF EXISTS public.watcher_state
     OWNER to postgres;
