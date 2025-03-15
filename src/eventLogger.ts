@@ -45,7 +45,7 @@ export class EventLogger {
     }
 
     if (lastProcessedBlock < currentBlock) {
-      console.log(`Processing historical blocks from ${lastProcessedBlock} to ${currentBlock}`);
+      console.log(`Processing historical blocks from ${lastProcessedBlock+1} to ${currentBlock}`);
       await this.processHistoricalBlocks(lastProcessedBlock+1, currentBlock);
     }
   }
