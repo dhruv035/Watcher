@@ -2,7 +2,6 @@ import {
   AbiEvent,
   createPublicClient,
   getAbiItem,
-  http,
   PublicClient,
   WatchBlocksReturnType,
   webSocket,
