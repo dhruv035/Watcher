@@ -38,10 +38,10 @@ export class EventLogger {
     // Initialize watcher state if it doesn't exist
     if (!lastProcessedBlock) {
       console.log(
-        `Initializing watcher state at block ${startBlockNumber - 1}`
+        `Initializing watcher state at block ${startBlockNumber}`
       );
-      await this.db.updateWatcherState(startBlockNumber - 1);
-      lastProcessedBlock = startBlockNumber - 1;
+      await this.db.updateWatcherState(startBlockNumber-1);
+      lastProcessedBlock = startBlockNumber-1;
     }
 
     if (lastProcessedBlock < currentBlock) {
