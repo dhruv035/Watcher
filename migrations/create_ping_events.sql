@@ -4,15 +4,11 @@
 
 CREATE TABLE IF NOT EXISTS public.ping_events
 (
-    tx_hash character varying(66) COLLATE pg_catalog."default" NOT NULL,
+    tx_hash character varying(66) NOT NULL,
     processed boolean DEFAULT false,
     block_number bigint,
-    pong_tx_nonce bigint,
+    pong_tx_nonce bigint NOT NULL,
     CONSTRAINT ping_events_pkey PRIMARY KEY (tx_hash),
-    CONSTRAINT pong_nonce FOREIGN KEY (pong_tx_nonce)
-        REFERENCES public.pong_transactions (nonce) MATCH SIMPLE
-        ON UPDATE NO ACTION
-        ON DELETE NO ACTION
 )
 
 TABLESPACE pg_default;
@@ -20,9 +16,6 @@ TABLESPACE pg_default;
 ALTER TABLE IF EXISTS public.ping_events
     OWNER to postgres;
 
--- FUNCTION: public.notify_ping_event()
-
--- DROP FUNCTION IF EXISTS public.notify_ping_event();
 
 CREATE OR REPLACE FUNCTION public.notify_ping_event()
     RETURNS trigger

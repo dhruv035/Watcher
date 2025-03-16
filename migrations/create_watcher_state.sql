@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS public.watcher_state
 (
     id integer NOT NULL,
     last_block_number bigint NOT NULL,
+    current_nonce bigint NOT NULL,
     CONSTRAINT watcher_state_pkey PRIMARY KEY (id)
 )
 

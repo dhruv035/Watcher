@@ -1,5 +1,6 @@
 import {
   AbiEvent,
+  Block,
   createPublicClient,
   getAbiItem,
   PublicClient,
@@ -9,6 +10,7 @@ import {
 import { DB } from "./db";
 import { abi } from "./abi";
 import { sepolia } from "viem/chains";
+import { Network } from "./network";
 const BATCH_SIZE = 1000;
 
 export type WatcherState = {
@@ -17,26 +19,22 @@ export type WatcherState = {
   id: number;
 };
 export class EventLogger {
-  private viemClient: PublicClient;
   private unwatch: WatchBlocksReturnType | undefined;
   private db: DB;
+  private network: Network;
   private contractAddress: string;
   private watcherState: WatcherState|undefined;
   constructor() {
-    const viemClient = createPublicClient({
-      chain: sepolia,
-      transport: webSocket(process.env.SEPOLIA_RPC_URL!),
-    });
-    this.viemClient = viemClient;
     this.db = new DB();
     this.contractAddress = process.env.CONTRACT_ADDRESS!;
+    this.network = new Network();
   }
 
   async initialize() {
     await this.db.connect();
     const startBlockNumber = parseInt(process.env.START_BLOCK_NUMBER!);
 
-    const currentBlock = Number(await this.viemClient.getBlockNumber());
+    const currentBlock = Number(await this.network.getBlockNumber());
     console.log(`Current block number: ${currentBlock}`);
 
     this.watcherState = await this.db.getWatcherState();
@@ -48,9 +46,7 @@ export class EventLogger {
       console.log(
         `Initializing watcher state at block ${startBlockNumber}`
       );
-      const txCount = await this.viemClient.getTransactionCount({
-        address: process.env.DEV_WALLET as `0x${string}`,
-      });
+      const txCount = await this.network.getTransactionCount(process.env.DEV_WALLET as `0x${string}`);
       await this.db.updateWatcherStateFields({
         last_block_number: startBlockNumber,
         current_nonce: Number(txCount),
@@ -67,26 +63,6 @@ export class EventLogger {
       await this.processHistoricalBlocks(lastProcessedBlock+1, currentBlock);
     }
   }
-
-  async fetchLogs(fromBlock: number, toBlock: number) {
-    try {
-      const PingEvent = getAbiItem({
-        abi,
-        name: "Ping",
-      });
-      const logs = await this.viemClient.getLogs({
-        address: this.contractAddress as `0x${string}`,
-        fromBlock: BigInt(fromBlock),
-        toBlock: BigInt(toBlock),
-        event: PingEvent as AbiEvent,
-      });
-
-      return logs;
-    } catch (error) {
-      console.error("Error fetching logs:", error);
-      throw error;
-    }
-  }
   async run() {
     await this.initialize();
     await this.startLogger();
@@ -99,7 +75,7 @@ export class EventLogger {
     console.log(`Processing batch from ${fromBlock} to ${toBlock}`);
     try {
       await this.db.beginTransaction();
-      const logs = await this.fetchLogs(fromBlock, toBlock);
+      const logs = await this.network.fetchLogs(fromBlock, toBlock);
       let nonce = this.watcherState.currentNonce;
       for (const log of logs) {
         await this.db.insertPingEvent(
@@ -144,44 +120,46 @@ export class EventLogger {
       throw error;
     }
   }
+  
+  async processBlockEvent(block:Block){
+    {
+      const blockNumber = Number(block.number);
+      if(!this.watcherState){
+        throw new Error("Watcher state not found");
+      }
+      try {
+        let nonce = this.watcherState.currentNonce;
+        console.log(`Processing block: ${blockNumber}`);
+
+        const logs = await this.network.fetchLogs(blockNumber, blockNumber);
+        this.db.beginTransaction();
+        for (const log of logs) {
+          console.log(`
+            New Ping Event Detected!
+            Transaction Hash: ${log.transactionHash}
+            Block Number: ${log.blockNumber}
+          `);
+          await this.db.insertPingEvent(log.transactionHash, blockNumber,nonce);
+          nonce = nonce+1;
+        }
+
+        await this.db.updateWatcherStateFields({
+          last_block_number: blockNumber,
+          current_nonce: nonce,
+        });
+        await this.db.commit();
+        this.watcherState.lastProcessedBlock = blockNumber;
+        // Always update the last processed block
+      } catch (error) {
+        await this.db.rollback();
+        console.error("Error processing block:", error);
+      }
+    }
+  }
   async startLogger() {
     
     console.log("Starting logger");
-    const unwatch = this.viemClient.watchBlocks({
-      onBlock: async (block) => {
-        const blockNumber = Number(block.number);
-        if(!this.watcherState){
-          throw new Error("Watcher state not found");
-        }
-        try {
-          let nonce = this.watcherState.currentNonce;
-          console.log(`Processing block: ${blockNumber}`);
-
-          const logs = await this.fetchLogs(blockNumber, blockNumber);
-          this.db.beginTransaction();
-          for (const log of logs) {
-            console.log(`
-              New Ping Event Detected!
-              Transaction Hash: ${log.transactionHash}
-              Block Number: ${log.blockNumber}
-            `);
-            await this.db.insertPingEvent(log.transactionHash, blockNumber,nonce);
-            nonce = nonce+1;
-          }
-
-          await this.db.updateWatcherStateFields({
-            last_block_number: blockNumber,
-            current_nonce: nonce,
-          });
-          await this.db.commit();
-          this.watcherState.lastProcessedBlock = blockNumber;
-          // Always update the last processed block
-        } catch (error) {
-          await this.db.rollback();
-          console.error("Error processing block:", error);
-        }
-      },
-    });
+    const unwatch = this.network.watchBlocks(this.processBlockEvent);
 
     this.unwatch = unwatch;
   }

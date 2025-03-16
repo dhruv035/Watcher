@@ -4,12 +4,12 @@
 
 CREATE TABLE IF NOT EXISTS public.pong_transactions
 (
-    tx_hash character varying(66) COLLATE pg_catalog."default" NOT NULL,
+    tx_hash character varying(66) NOT NULL,
     nonce bigint NOT NULL,
-    ping_hash character varying(66) COLLATE pg_catalog."default" NOT NULL,
-    status character varying COLLATE pg_catalog."default" NOT NULL,
+    ping_hash character varying(66) NOT NULL,
+    status character varying NOT NULL,
     block_number bigint,
-    replacement_hash character varying(66) COLLATE pg_catalog."default",
+    replacement_hash character varying(66),
     CONSTRAINT pong_transactions_pkey PRIMARY KEY (nonce),
     CONSTRAINT tx_hash UNIQUE (tx_hash)
 )
