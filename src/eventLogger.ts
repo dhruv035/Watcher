@@ -121,45 +121,44 @@ export class EventLogger {
     }
   }
   
-  async processBlockEvent(block:Block){
-    {
-      const blockNumber = Number(block.number);
-      if(!this.watcherState){
-        throw new Error("Watcher state not found");
-      }
-      try {
-        let nonce = this.watcherState.currentNonce;
-        console.log(`Processing block: ${blockNumber}`);
-
-        const logs = await this.network.fetchLogs(blockNumber, blockNumber);
-        this.db.beginTransaction();
-        for (const log of logs) {
-          console.log(`
-            New Ping Event Detected!
-            Transaction Hash: ${log.transactionHash}
-            Block Number: ${log.blockNumber}
-          `);
-          await this.db.insertPingEvent(log.transactionHash, blockNumber,nonce);
-          nonce = nonce+1;
-        }
-
-        await this.db.updateWatcherStateFields({
-          last_block_number: blockNumber,
-          current_nonce: nonce,
-        });
-        await this.db.commit();
-        this.watcherState.lastProcessedBlock = blockNumber;
-        // Always update the last processed block
-      } catch (error) {
-        await this.db.rollback();
-        console.error("Error processing block:", error);
-      }
-    }
-  }
   async startLogger() {
     
     console.log("Starting logger");
-    const unwatch = this.network.watchBlocks(this.processBlockEvent);
+    const unwatch = this.network.publicClient.watchBlocks({
+      onBlock: async (block) =>  {
+        const blockNumber = Number(block.number);
+        if(!this.watcherState){
+          throw new Error("Watcher state not found");
+        }
+        try {
+          let nonce = this.watcherState.currentNonce;
+          console.log(`Processing block: ${blockNumber}`);
+  
+          const logs = await this.network.fetchLogs(blockNumber, blockNumber);
+          this.db.beginTransaction();
+          for (const log of logs) {
+            console.log(`
+              New Ping Event Detected!
+              Transaction Hash: ${log.transactionHash}
+              Block Number: ${log.blockNumber}
+            `);
+            await this.db.insertPingEvent(log.transactionHash, blockNumber,nonce);
+            nonce = nonce+1;
+          }
+  
+          await this.db.updateWatcherStateFields({
+            last_block_number: blockNumber,
+            current_nonce: nonce,
+          });
+          await this.db.commit();
+          this.watcherState.lastProcessedBlock = blockNumber;
+          // Always update the last processed block
+        } catch (error) {
+          await this.db.rollback();
+          console.error("Error processing block:", error);
+        }
+      },
+    });
 
     this.unwatch = unwatch;
   }
