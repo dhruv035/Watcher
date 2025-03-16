@@ -44,7 +44,7 @@ export class DB {
   }
 
   async processEventLogs(logs: any[],nonce:number,toBlock:number):Promise<number>{
-    let newNonce = nonce;
+
     await this.withTransaction(async (client) => {
       for (const log of logs) {
         
@@ -53,14 +53,14 @@ export class DB {
           last_block_number: Number(log.blockNumber),
           current_nonce: nonce,
         },client);
-        newNonce = newNonce+1;
+        nonce = nonce+1;
       }
       await this.updateWatcherStateFields({
         last_block_number: Number(toBlock),
-        current_nonce: newNonce,
+        current_nonce:nonce,
       },client);
     });
-    return newNonce;
+    return nonce;
   }
   async getWatcherState(){
     return await this.withClient(async (client) => {
