@@ -1,4 +1,4 @@
-import { AbiEvent, Block, createPublicClient, getAbiItem, webSocket } from "viem";
+import { AbiEvent, Block, createPublicClient, getAbiItem, http, webSocket } from "viem";
 import { abi } from "./abi";
 import { PublicClient } from "viem";
 import { sepolia } from "viem/chains";
@@ -9,7 +9,7 @@ export class Network {
   constructor(){
     this.publicClient = createPublicClient({
         chain: sepolia,
-        transport: webSocket(process.env.SEPOLIA_RPC_URL),
+        transport: http(process.env.SEPOLIA_RPC_URL),
       });
     this.contractAddress = process.env.CONTRACT_ADDRESS!;
     }
