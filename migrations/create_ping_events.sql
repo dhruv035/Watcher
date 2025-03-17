@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS public.ping_events
     processed boolean DEFAULT false,
     block_number bigint,
     pong_tx_nonce bigint NOT NULL,
-    CONSTRAINT ping_events_pkey PRIMARY KEY (tx_hash),
+    CONSTRAINT ping_events_pkey PRIMARY KEY (tx_hash)
 )
 
 TABLESPACE pg_default;
